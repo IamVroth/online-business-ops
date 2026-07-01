@@ -81,8 +81,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
           <p className="text-sm text-muted-foreground mt-1">{today} · showing {from} → {to}</p>
         </div>
         <Card className="w-full lg:w-auto">
-          <CardContent className="p-4">
-          <form className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <CardContent className="flex min-h-[92px] items-center p-4">
+          <form className="grid w-full gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
             <div className="min-w-0">
               <label className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <CalendarDays className="h-3.5 w-3.5" />

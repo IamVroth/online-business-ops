@@ -27,8 +27,8 @@ export default async function SalesPage({ searchParams }: { searchParams: { from
       </div>
 
       <Card>
-        <CardContent className="pt-6">
-          <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[auto_auto_1fr_auto_auto] lg:items-end">
+        <CardContent className="flex min-h-[92px] items-center p-4 sm:p-6">
+          <form className="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-[auto_auto_1fr_auto_auto] lg:items-end">
             <div><label className="block text-xs mb-1">From</label><input type="date" name="from" defaultValue={searchParams.from} className="h-10 w-full rounded-xl border px-3 text-sm" /></div>
             <div><label className="block text-xs mb-1">To</label><input type="date" name="to" defaultValue={searchParams.to} className="h-10 w-full rounded-xl border px-3 text-sm" /></div>
             <div><label className="block text-xs mb-1">Channel</label><input name="channel" defaultValue={searchParams.channel} className="h-10 w-full rounded-xl border px-3 text-sm" placeholder="e.g. Facebook" /></div>

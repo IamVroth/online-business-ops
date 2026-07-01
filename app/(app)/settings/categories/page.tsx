@@ -17,9 +17,9 @@ export default async function CategoriesPage() {
       <Card>
         <CardHeader><CardTitle>Add category</CardTitle></CardHeader>
         <CardContent>
-          <form action={createExpenseCategory} className="flex gap-3 items-end">
+          <form action={createExpenseCategory} className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
             <div className="flex-1"><Label>Name</Label><Input name="name" required /></div>
-            <Button type="submit">Add</Button>
+            <Button type="submit" className="w-full sm:w-auto">Add</Button>
           </form>
         </CardContent>
       </Card>
