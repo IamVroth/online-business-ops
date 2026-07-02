@@ -8,21 +8,48 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency, toISODate } from "@/lib/utils";
-import { createSale } from "@/lib/actions";
-import { Trash2, Plus } from "lucide-react";
+import { createSale, updateSale } from "@/lib/actions";
+import { Trash2, Plus, Save } from "lucide-react";
 
 type Product = { id: string; name: string; price: number };
 type Item = { product_id: string | null; product_name: string; qty: number; unit_price: number };
+type InitialSale = {
+  id: string;
+  sale_date: string;
+  customer_name: string | null;
+  channel: string | null;
+  discount: number | string | null;
+  payment_status: string | null;
+  note: string | null;
+};
 
-export function NewSaleForm({ products }: { products: Product[] }) {
+export function NewSaleForm({
+  products,
+  initialSale,
+  initialItems,
+}: {
+  products: Product[];
+  initialSale?: InitialSale;
+  initialItems?: Item[];
+}) {
   const router = useRouter();
-  const [items, setItems] = useState<Item[]>([{ product_id: null, product_name: "", qty: 1, unit_price: 0 }]);
-  const [saleDate, setSaleDate] = useState(toISODate(new Date()));
-  const [customer, setCustomer] = useState("");
-  const [channel, setChannel] = useState("Facebook");
-  const [discount, setDiscount] = useState(0);
-  const [status, setStatus] = useState("paid");
-  const [note, setNote] = useState("");
+  const isEditing = Boolean(initialSale);
+  const [items, setItems] = useState<Item[]>(
+    initialItems?.length
+      ? initialItems.map((item) => ({
+          product_id: item.product_id || null,
+          product_name: item.product_name || "",
+          qty: Number(item.qty || 0),
+          unit_price: Number(item.unit_price || 0),
+        }))
+      : [{ product_id: null, product_name: "", qty: 1, unit_price: 0 }]
+  );
+  const [saleDate, setSaleDate] = useState(initialSale?.sale_date || toISODate(new Date()));
+  const [customer, setCustomer] = useState(initialSale?.customer_name || "");
+  const [channel, setChannel] = useState(initialSale?.channel || "Facebook");
+  const [discount, setDiscount] = useState(Number(initialSale?.discount || 0));
+  const [status, setStatus] = useState(initialSale?.payment_status || "paid");
+  const [note, setNote] = useState(initialSale?.note || "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +71,7 @@ export function NewSaleForm({ products }: { products: Product[] }) {
     try {
       const cleanItems = items.filter((i) => i.product_name && i.qty > 0);
       if (cleanItems.length === 0) throw new Error("Add at least one item");
-      await createSale({
+      const payload = {
         sale_date: saleDate,
         customer_name: customer,
         channel,
@@ -52,7 +79,9 @@ export function NewSaleForm({ products }: { products: Product[] }) {
         payment_status: status,
         note,
         items: cleanItems,
-      });
+      };
+      if (initialSale) await updateSale(initialSale.id, payload);
+      else await createSale(payload);
       router.push("/sales");
       router.refresh();
     } catch (e: any) {
@@ -64,7 +93,7 @@ export function NewSaleForm({ products }: { products: Product[] }) {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{isEditing ? "Edit details" : "Details"}</CardTitle></CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-4 gap-3">
           <div><Label>Date</Label><Input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} /></div>
           <div><Label>Customer</Label><Input value={customer} onChange={(e) => setCustomer(e.target.value)} /></div>
@@ -130,7 +159,10 @@ export function NewSaleForm({ products }: { products: Product[] }) {
           </div>
           {error && <p className="text-sm text-destructive md:col-span-3">{error}</p>}
           <div className="md:col-span-3">
-            <Button onClick={submit} disabled={submitting} className="w-full sm:w-auto">{submitting ? "Saving..." : "Save sale"}</Button>
+            <Button onClick={submit} disabled={submitting} className="w-full sm:w-auto">
+              <Save className="mr-1 h-4 w-4" />
+              {submitting ? "Saving..." : isEditing ? "Update sale" : "Save sale"}
+            </Button>
           </div>
         </CardContent>
       </Card>

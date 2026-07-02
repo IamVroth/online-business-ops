@@ -64,9 +64,12 @@ export async function updateProduct(id: string, formData: FormData) {
     category: (formData.get("category") as string) || null,
     active: formData.get("active") === "on",
   };
+  if (!payload.name) throw new Error("Name is required");
   const { error } = await supabase.from("products").update(payload).eq("id", id);
   if (error) throw error;
   revalidatePath("/products");
+  revalidatePath(`/products/${id}/edit`);
+  redirect("/products");
 }
 
 export async function deleteProduct(id: string) {
@@ -120,6 +123,56 @@ export async function createSale(input: {
   revalidatePath("/sales");
   revalidatePath("/");
   return sale.id;
+}
+
+export async function updateSale(id: string, input: {
+  sale_date: string;
+  customer_name?: string;
+  channel?: string;
+  discount?: number;
+  payment_status?: string;
+  note?: string;
+  items: { product_id?: string | null; product_name: string; qty: number; unit_price: number }[];
+}) {
+  const { supabase } = await requireUser();
+  const cleanItems = input.items.filter((i) => i.product_name && i.qty > 0);
+  if (cleanItems.length === 0) throw new Error("Add at least one item");
+
+  const subtotal = cleanItems.reduce((s, i) => s + i.qty * i.unit_price, 0);
+  const total = Math.max(0, subtotal - (input.discount || 0));
+
+  const { error: saleError } = await supabase
+    .from("sales")
+    .update({
+      sale_date: input.sale_date,
+      customer_name: input.customer_name || null,
+      channel: input.channel || null,
+      discount: input.discount || 0,
+      total,
+      payment_status: input.payment_status || "paid",
+      note: input.note || null,
+    })
+    .eq("id", id);
+  if (saleError) throw saleError;
+
+  const { error: deleteError } = await supabase.from("sale_items").delete().eq("sale_id", id);
+  if (deleteError) throw deleteError;
+
+  const items = cleanItems.map((i) => ({
+    sale_id: id,
+    product_id: i.product_id || null,
+    product_name: i.product_name,
+    qty: i.qty,
+    unit_price: i.unit_price,
+    subtotal: i.qty * i.unit_price,
+  }));
+  const { error: insertError } = await supabase.from("sale_items").insert(items);
+  if (insertError) throw insertError;
+
+  revalidatePath("/sales");
+  revalidatePath(`/sales/${id}/edit`);
+  revalidatePath("/");
+  return id;
 }
 
 export async function deleteSale(id: string) {

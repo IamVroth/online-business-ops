@@ -5,13 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { deleteSale } from "@/lib/actions";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function SalesPage({ searchParams }: { searchParams: { from?: string; to?: string; channel?: string } }) {
   const supabase = createClient();
-  let q = supabase.from("sales").select("*").order("sale_date", { ascending: false });
+  let q = supabase
+    .from("sales")
+    .select("id,sale_date,customer_name,channel,payment_status,total")
+    .order("sale_date", { ascending: false });
   if (searchParams.from) q = q.gte("sale_date", searchParams.from);
   if (searchParams.to) q = q.lte("sale_date", searchParams.to);
   if (searchParams.channel) q = q.eq("channel", searchParams.channel);
@@ -54,9 +57,14 @@ export default async function SalesPage({ searchParams }: { searchParams: { from
                   <TD><span className="text-xs uppercase text-muted-foreground">{s.payment_status}</span></TD>
                   <TD className="text-right font-medium">{formatCurrency(s.total)}</TD>
                   <TD className="text-right">
-                    <form action={async () => { "use server"; await deleteSale(s.id); }}>
-                      <Button variant="ghost" size="sm" type="submit">Delete</Button>
-                    </form>
+                    <div className="flex justify-end gap-1">
+                      <Button asChild variant="ghost" size="sm">
+                        <Link href={`/sales/${s.id}/edit`}><Pencil className="mr-1 h-4 w-4" />Edit</Link>
+                      </Button>
+                      <form action={async () => { "use server"; await deleteSale(s.id); }}>
+                        <Button variant="ghost" size="sm" type="submit">Delete</Button>
+                      </form>
+                    </div>
                   </TD>
                 </TR>
               ))}

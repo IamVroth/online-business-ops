@@ -13,9 +13,12 @@ export const dynamic = "force-dynamic";
 
 export default async function ExpensesPage({ searchParams }: { searchParams: { from?: string; to?: string; category?: string } }) {
   const supabase = createClient();
-  const { data: categories } = await supabase.from("expense_categories").select("*").order("name");
+  const { data: categories } = await supabase.from("expense_categories").select("id,name").order("name");
 
-  let q = supabase.from("expenses").select("*, expense_categories(name)").order("expense_date", { ascending: false });
+  let q = supabase
+    .from("expenses")
+    .select("id,expense_date,category_id,vendor,amount,note,expense_categories(name)")
+    .order("expense_date", { ascending: false });
   if (searchParams.from) q = q.gte("expense_date", searchParams.from);
   if (searchParams.to) q = q.lte("expense_date", searchParams.to);
   if (searchParams.category) q = q.eq("category_id", searchParams.category);

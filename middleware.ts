@@ -41,28 +41,26 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && !isAuthRoute) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, active")
-      .eq("id", user.id)
-      .single();
+    const isReportViewerAllowedRoute =
+      pathname === "/" ||
+      pathname.startsWith("/facebook") ||
+      pathname.startsWith("/auth/signout");
 
-    if (profile?.active === false && pathname !== "/auth/signout") {
+    if (isReportViewerAllowedRoute) {
       return response;
     }
 
-    if (profile?.role === "report_viewer") {
-      const allowed =
-        pathname === "/" ||
-        pathname.startsWith("/facebook") ||
-        pathname.startsWith("/auth/signout");
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
 
-      if (!allowed) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/";
-        url.search = "";
-        return NextResponse.redirect(url);
-      }
+    if (profile?.role === "report_viewer") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      url.search = "";
+      return NextResponse.redirect(url);
     }
   }
 

@@ -128,7 +128,7 @@ export default async function FacebookPage({ searchParams }: { searchParams: { f
 
   let query = supabase
     .from("fb_ad_insights")
-    .select("*")
+    .select("id,campaign_name,date,date_end,spend,reach,impressions,clicks,leads")
     .gte("date", from).lte("date", to)
     .order("spend", { ascending: false });
   if (!showAll) query = query.gt("spend", 0);
@@ -140,7 +140,7 @@ export default async function FacebookPage({ searchParams }: { searchParams: { f
 
   const { data: contentRows } = await supabase
     .from("fb_page_content_metrics")
-    .select("*")
+    .select("id,page_name,content_title,content_url,content_type,date,reach,impressions,engagements,reactions,comments,shares,clicks,video_views")
     .gte("date", from)
     .lte("date", to)
     .order("engagements", { ascending: false });

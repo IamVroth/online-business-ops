@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,12 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { createProduct, deleteProduct } from "@/lib/actions";
 import { formatCurrency } from "@/lib/utils";
+import { Pencil } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function ProductsPage() {
   const supabase = createClient();
-  const { data: products } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+  const { data: products } = await supabase
+    .from("products")
+    .select("id,name,sku,category,price,active")
+    .order("created_at", { ascending: false });
 
   return (
     <div className="space-y-6">
@@ -35,7 +40,7 @@ export default async function ProductsPage() {
         <CardContent>
           <Table>
             <THead>
-              <TR><TH>Name</TH><TH>SKU</TH><TH>Category</TH><TH className="text-right">Price</TH><TH></TH></TR>
+              <TR><TH>Name</TH><TH>SKU</TH><TH>Category</TH><TH>Status</TH><TH className="text-right">Price</TH><TH></TH></TR>
             </THead>
             <TBody>
               {(products || []).map((p) => (
@@ -43,16 +48,26 @@ export default async function ProductsPage() {
                   <TD className="font-medium">{p.name}</TD>
                   <TD className="text-muted-foreground">{p.sku || "—"}</TD>
                   <TD>{p.category || "—"}</TD>
+                  <TD>
+                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${p.active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                      {p.active ? "Active" : "Inactive"}
+                    </span>
+                  </TD>
                   <TD className="text-right">{formatCurrency(p.price)}</TD>
                   <TD className="text-right">
-                    <form action={async () => { "use server"; await deleteProduct(p.id); }}>
-                      <Button variant="ghost" size="sm" type="submit">Delete</Button>
-                    </form>
+                    <div className="flex justify-end gap-1">
+                      <Button asChild variant="ghost" size="sm">
+                        <Link href={`/products/${p.id}/edit`}><Pencil className="mr-1 h-4 w-4" />Edit</Link>
+                      </Button>
+                      <form action={async () => { "use server"; await deleteProduct(p.id); }}>
+                        <Button variant="ghost" size="sm" type="submit">Delete</Button>
+                      </form>
+                    </div>
                   </TD>
                 </TR>
               ))}
               {(!products || products.length === 0) && (
-                <TR><TD colSpan={5} className="text-center text-muted-foreground py-6">No products yet.</TD></TR>
+                <TR><TD colSpan={6} className="text-center text-muted-foreground py-6">No products yet.</TD></TR>
               )}
             </TBody>
           </Table>
