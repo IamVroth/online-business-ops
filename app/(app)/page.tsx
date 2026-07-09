@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, THead, TBody, TR, TH, TD } from "@/components/ui/table";
 import { formatCurrency, toISODate } from "@/lib/utils";
-import { CalendarDays, DollarSign, Package, ShoppingBag, Target, TrendingDown, TrendingUp, Trophy } from "lucide-react";
+import { CalendarDays, DollarSign, Package, ShoppingBag, Target, TrendingDown, TrendingUp, Trophy, Truck } from "lucide-react";
 import { DashboardCharts } from "@/components/dashboard-charts";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +59,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   const { data: saleItems } = saleIds.length > 0
     ? await supabase
       .from("sale_items")
-      .select("sale_id, product_id, product_name, qty, subtotal")
+      .select("sale_id, product_id, product_name, qty, subtotal, delivery_fee, delivery_fee_payer")
       .in("sale_id", saleIds)
     : { data: [] };
 
@@ -68,7 +68,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   const totalExpense = (expenses || []).reduce((s, r) => s + Number(r.amount || 0), 0);
   const adSpend = (fb || []).reduce((s, r) => s + Number(r.spend || 0), 0);
   const leads = (fb || []).reduce((s, r) => s + Number(r.leads || 0), 0);
-  const profit = revenue - totalExpense;
+  const deliveryExpense = (saleItems || []).reduce(
+    (s, item) => s + (item.delivery_fee_payer === "company" ? Number(item.delivery_fee || 0) : 0),
+    0
+  );
+  const operatingCost = totalExpense + adSpend + deliveryExpense;
+  const profit = revenue - operatingCost;
   const aov = orders > 0 ? revenue / orders : 0;
   const roas = adSpend > 0 ? revenue / adSpend : 0;
   const productSummaries = Array.from(
@@ -100,11 +105,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
 
   const kpis = [
     { label: "Revenue", value: formatCurrency(revenue), icon: DollarSign, chip: "bg-emerald-50 text-emerald-600" },
-    { label: "Expenses", value: formatCurrency(totalExpense), icon: TrendingDown, chip: "bg-rose-50 text-rose-600" },
+    { label: "Operating Cost", value: formatCurrency(operatingCost), icon: TrendingDown, chip: "bg-rose-50 text-rose-600" },
     { label: "Net Profit", value: formatCurrency(profit), icon: TrendingUp, chip: profit >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-600" },
     { label: "Orders", value: String(orders), icon: ShoppingBag, chip: "bg-blue-50 text-blue-600" },
     { label: "AOV", value: formatCurrency(aov), icon: DollarSign, chip: "bg-indigo-50 text-indigo-600" },
     { label: "Ad Spend", value: formatCurrency(adSpend), icon: Target, chip: "bg-amber-50 text-amber-600" },
+    { label: "Delivery Expense", value: formatCurrency(deliveryExpense), icon: Truck, chip: "bg-teal-50 text-teal-600" },
     { label: "ROAS", value: roas.toFixed(2) + "x", icon: TrendingUp, chip: "bg-purple-50 text-purple-600" },
     { label: "Leads", value: String(leads), icon: Target, chip: "bg-pink-50 text-pink-600" },
   ];

@@ -13,14 +13,25 @@ export default async function SalesPage({ searchParams }: { searchParams: { from
   const supabase = createClient();
   let q = supabase
     .from("sales")
-    .select("id,sale_date,customer_name,channel,payment_status,total")
+    .select("id,sale_date,customer_name,customer_phone,channel,payment_status,total")
     .order("sale_date", { ascending: false });
   if (searchParams.from) q = q.gte("sale_date", searchParams.from);
   if (searchParams.to) q = q.lte("sale_date", searchParams.to);
   if (searchParams.channel) q = q.eq("channel", searchParams.channel);
   const { data: sales } = await q;
+  const saleIds = (sales || []).map((sale) => sale.id);
+  const { data: saleItems } = saleIds.length > 0
+    ? await supabase
+        .from("sale_items")
+        .select("sale_id,delivery_fee,delivery_fee_payer")
+        .in("sale_id", saleIds)
+    : { data: [] };
 
   const total = (sales || []).reduce((s, r) => s + Number(r.total || 0), 0);
+  const deliveryExpenseTotal = (saleItems || []).reduce(
+    (sum, item) => sum + (item.delivery_fee_payer === "company" ? Number(item.delivery_fee || 0) : 0),
+    0
+  );
 
   return (
     <div className="space-y-6">
@@ -42,17 +53,22 @@ export default async function SalesPage({ searchParams }: { searchParams: { from
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Results ({sales?.length || 0}) — Total: {formatCurrency(total)}</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle>
+            Results ({sales?.length || 0}) — Total: {formatCurrency(total)} — Delivery expense: {formatCurrency(deliveryExpenseTotal)}
+          </CardTitle>
+        </CardHeader>
         <CardContent>
           <Table>
             <THead>
-              <TR><TH>Date</TH><TH>Customer</TH><TH>Channel</TH><TH>Status</TH><TH className="text-right">Total</TH><TH></TH></TR>
+              <TR><TH>Date</TH><TH>Customer</TH><TH>Phone</TH><TH>Channel</TH><TH>Status</TH><TH className="text-right">Total</TH><TH></TH></TR>
             </THead>
             <TBody>
               {(sales || []).map((s) => (
                 <TR key={s.id}>
                   <TD>{formatDate(s.sale_date)}</TD>
                   <TD>{s.customer_name || "—"}</TD>
+                  <TD>{s.customer_phone || "—"}</TD>
                   <TD>{s.channel || "—"}</TD>
                   <TD><span className="text-xs uppercase text-muted-foreground">{s.payment_status}</span></TD>
                   <TD className="text-right font-medium">{formatCurrency(s.total)}</TD>
@@ -69,7 +85,7 @@ export default async function SalesPage({ searchParams }: { searchParams: { from
                 </TR>
               ))}
               {(!sales || sales.length === 0) && (
-                <TR><TD colSpan={6} className="text-center text-muted-foreground py-6">No sales yet.</TD></TR>
+                <TR><TD colSpan={7} className="text-center text-muted-foreground py-6">No sales yet.</TD></TR>
               )}
             </TBody>
           </Table>

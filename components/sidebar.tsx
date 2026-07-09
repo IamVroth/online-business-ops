@@ -1,14 +1,16 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, ShoppingCart, Package, Receipt, BarChart3, Users, Settings, LogOut, Sparkles } from "lucide-react";
+import { LayoutDashboard, ShoppingCart, Package, Receipt, BarChart3, TrendingUp, Users, UserRound, Settings, LogOut, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type UserRole = "admin" | "manager" | "staff" | "report_viewer";
 
 const items = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard, tint: "bg-blue-50 text-blue-600", roles: ["admin", "manager", "staff", "report_viewer"] },
+  { href: "/reports", label: "Reports", icon: TrendingUp, tint: "bg-teal-50 text-teal-600", roles: ["admin", "manager", "staff", "report_viewer"] },
   { href: "/sales", label: "Sales", icon: ShoppingCart, tint: "bg-emerald-50 text-emerald-600", roles: ["admin", "manager", "staff"] },
+  { href: "/customers", label: "Customers", icon: UserRound, tint: "bg-cyan-50 text-cyan-600", roles: ["admin", "manager", "staff"] },
   { href: "/products", label: "Products", icon: Package, tint: "bg-amber-50 text-amber-600", roles: ["admin", "manager", "staff"] },
   { href: "/expenses", label: "Expenses", icon: Receipt, tint: "bg-rose-50 text-rose-600", roles: ["admin", "manager", "staff"] },
   { href: "/facebook", label: "Social Media Report", icon: BarChart3, tint: "bg-indigo-50 text-indigo-600", roles: ["admin", "manager", "staff", "report_viewer"] },

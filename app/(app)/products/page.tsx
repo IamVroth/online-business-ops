@@ -15,7 +15,7 @@ export default async function ProductsPage() {
   const supabase = createClient();
   const { data: products } = await supabase
     .from("products")
-    .select("id,name,sku,category,price,active")
+    .select("id,name,sku,category,price,delivery_fee,delivery_company_min_qty,active")
     .order("created_at", { ascending: false });
 
   return (
@@ -25,12 +25,14 @@ export default async function ProductsPage() {
       <Card>
         <CardHeader><CardTitle>New product</CardTitle></CardHeader>
         <CardContent>
-          <form action={createProduct} className="grid grid-cols-1 gap-3 md:grid-cols-5 md:items-end">
+          <form action={createProduct} className="grid grid-cols-1 gap-3 md:grid-cols-6 md:items-end">
             <div className="md:col-span-2"><Label>Name</Label><Input name="name" required /></div>
             <div><Label>SKU</Label><Input name="sku" /></div>
             <div><Label>Price</Label><Input name="price" type="number" step="0.01" defaultValue="0" required /></div>
             <div><Label>Category</Label><Input name="category" /></div>
-            <div className="md:col-span-5"><Button type="submit" className="w-full sm:w-auto">Add product</Button></div>
+            <div><Label>Delivery fee</Label><Input name="delivery_fee" type="number" step="0.01" defaultValue="0" /></div>
+            <div><Label>Company pays from qty</Label><Input name="delivery_company_min_qty" type="number" step="0.01" placeholder="e.g. 5" /></div>
+            <div className="md:col-span-6"><Button type="submit" className="w-full sm:w-auto">Add product</Button></div>
           </form>
         </CardContent>
       </Card>
@@ -40,7 +42,7 @@ export default async function ProductsPage() {
         <CardContent>
           <Table>
             <THead>
-              <TR><TH>Name</TH><TH>SKU</TH><TH>Category</TH><TH>Status</TH><TH className="text-right">Price</TH><TH></TH></TR>
+              <TR><TH>Name</TH><TH>SKU</TH><TH>Category</TH><TH>Status</TH><TH className="text-right">Price</TH><TH className="text-right">Delivery</TH><TH></TH></TR>
             </THead>
             <TBody>
               {(products || []).map((p) => (
@@ -55,6 +57,12 @@ export default async function ProductsPage() {
                   </TD>
                   <TD className="text-right">{formatCurrency(p.price)}</TD>
                   <TD className="text-right">
+                    <div>{formatCurrency(p.delivery_fee || 0)}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {p.delivery_company_min_qty ? `Company from ${Number(p.delivery_company_min_qty)}` : "Customer pays"}
+                    </div>
+                  </TD>
+                  <TD className="text-right">
                     <div className="flex justify-end gap-1">
                       <Button asChild variant="ghost" size="sm">
                         <Link href={`/products/${p.id}/edit`}><Pencil className="mr-1 h-4 w-4" />Edit</Link>
@@ -67,7 +75,7 @@ export default async function ProductsPage() {
                 </TR>
               ))}
               {(!products || products.length === 0) && (
-                <TR><TD colSpan={6} className="text-center text-muted-foreground py-6">No products yet.</TD></TR>
+                <TR><TD colSpan={7} className="text-center text-muted-foreground py-6">No products yet.</TD></TR>
               )}
             </TBody>
           </Table>

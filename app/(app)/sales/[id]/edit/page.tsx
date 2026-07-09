@@ -8,18 +8,19 @@ export const dynamic = "force-dynamic";
 
 export default async function EditSalePage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const [{ data: sale }, { data: saleItems }, { data: products }] = await Promise.all([
+  const [{ data: sale }, { data: saleItems }, { data: products }, { data: customers }] = await Promise.all([
     supabase
       .from("sales")
-      .select("id,sale_date,customer_name,channel,discount,payment_status,note")
+      .select("id,sale_date,customer_id,customer_name,customer_phone,customer_address,channel,discount,payment_status,note")
       .eq("id", params.id)
       .single(),
     supabase
       .from("sale_items")
-      .select("product_id,product_name,qty,unit_price")
+      .select("product_id,product_name,qty,unit_price,delivery_fee,delivery_fee_payer")
       .eq("sale_id", params.id)
       .order("id", { ascending: true }),
-    supabase.from("products").select("id, name, price").order("name"),
+    supabase.from("products").select("id, name, price, delivery_fee, delivery_company_min_qty").order("name"),
+    supabase.from("customers").select("id, name, phone, address").order("name"),
   ]);
 
   if (!sale) notFound();
@@ -40,12 +41,15 @@ export default async function EditSalePage({ params }: { params: { id: string } 
 
       <NewSaleForm
         products={products || []}
+        customers={customers || []}
         initialSale={sale}
         initialItems={(saleItems || []).map((item) => ({
           product_id: item.product_id || null,
           product_name: item.product_name,
           qty: Number(item.qty || 0),
           unit_price: Number(item.unit_price || 0),
+          delivery_fee: Number(item.delivery_fee || 0),
+          delivery_fee_payer: item.delivery_fee_payer === "company" ? "company" : "customer",
         }))}
       />
     </div>

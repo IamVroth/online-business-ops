@@ -5,11 +5,21 @@ export const dynamic = "force-dynamic";
 
 export default async function NewSalePage() {
   const supabase = createClient();
-  const { data: products } = await supabase.from("products").select("id, name, price").eq("active", true).order("name");
+  const [{ data: products }, { data: customers }] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id, name, price, delivery_fee, delivery_company_min_qty")
+      .eq("active", true)
+      .order("name"),
+    supabase
+      .from("customers")
+      .select("id, name, phone, address")
+      .order("name"),
+  ]);
   return (
     <div className="space-y-6 max-w-4xl">
       <h1 className="text-2xl font-bold">New sale</h1>
-      <NewSaleForm products={products || []} />
+      <NewSaleForm products={products || []} customers={customers || []} />
     </div>
   );
 }

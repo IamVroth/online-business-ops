@@ -13,7 +13,7 @@ export default async function EditProductPage({ params }: { params: { id: string
   const supabase = createClient();
   const { data: product } = await supabase
     .from("products")
-    .select("id,name,sku,price,category,active")
+    .select("id,name,sku,price,category,delivery_fee,delivery_company_min_qty,active")
     .eq("id", params.id)
     .single();
 
@@ -54,6 +54,20 @@ export default async function EditProductPage({ params }: { params: { id: string
             <div>
               <Label>Category</Label>
               <Input name="category" defaultValue={product.category || ""} />
+            </div>
+            <div>
+              <Label>Delivery fee</Label>
+              <Input name="delivery_fee" type="number" step="0.01" defaultValue={Number(product.delivery_fee || 0)} />
+            </div>
+            <div>
+              <Label>Company pays from qty</Label>
+              <Input
+                name="delivery_company_min_qty"
+                type="number"
+                step="0.01"
+                defaultValue={product.delivery_company_min_qty == null ? "" : Number(product.delivery_company_min_qty)}
+                placeholder="e.g. 5"
+              />
             </div>
             <label className="flex h-10 items-center gap-2 self-end rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700">
               <input type="checkbox" name="active" defaultChecked={product.active} />

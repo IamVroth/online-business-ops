@@ -47,6 +47,10 @@ export async function createProduct(formData: FormData) {
     sku: (formData.get("sku") as string) || null,
     price: Number(formData.get("price") || 0),
     category: (formData.get("category") as string) || null,
+    delivery_fee: Number(formData.get("delivery_fee") || 0),
+    delivery_company_min_qty: formData.get("delivery_company_min_qty")
+      ? Number(formData.get("delivery_company_min_qty"))
+      : null,
     created_by: user.id,
   };
   if (!payload.name) throw new Error("Name is required");
@@ -62,6 +66,10 @@ export async function updateProduct(id: string, formData: FormData) {
     sku: (formData.get("sku") as string) || null,
     price: Number(formData.get("price") || 0),
     category: (formData.get("category") as string) || null,
+    delivery_fee: Number(formData.get("delivery_fee") || 0),
+    delivery_company_min_qty: formData.get("delivery_company_min_qty")
+      ? Number(formData.get("delivery_company_min_qty"))
+      : null,
     active: formData.get("active") === "on",
   };
   if (!payload.name) throw new Error("Name is required");
@@ -79,25 +87,150 @@ export async function deleteProduct(id: string) {
   revalidatePath("/products");
 }
 
+// ============ CUSTOMERS ============
+function customerPayload(formData: FormData) {
+  return {
+    name: String(formData.get("name") || "").trim(),
+    phone: String(formData.get("phone") || "").trim() || null,
+    address: String(formData.get("address") || "").trim() || null,
+  };
+}
+
+export async function createCustomer(formData: FormData) {
+  const { supabase, user } = await requireUser();
+  const payload = { ...customerPayload(formData), created_by: user.id };
+  if (!payload.name) throw new Error("Name is required");
+  const { error } = await supabase.from("customers").insert(payload);
+  if (error) throw error;
+  revalidatePath("/customers");
+}
+
+export async function updateCustomer(id: string, formData: FormData) {
+  const { supabase } = await requireUser();
+  const payload = customerPayload(formData);
+  if (!payload.name) throw new Error("Name is required");
+  const { error } = await supabase.from("customers").update(payload).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/customers");
+  revalidatePath(`/customers/${id}/edit`);
+  redirect("/customers");
+}
+
+export async function deleteCustomer(id: string) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("customers").delete().eq("id", id);
+  if (error) throw error;
+  revalidatePath("/customers");
+}
+
 // ============ SALES ============
+type SaleInputItem = {
+  product_id?: string | null;
+  product_name: string;
+  qty: number;
+  unit_price: number;
+  delivery_fee?: number;
+  delivery_fee_payer?: DeliveryFeePayer;
+};
+
+type DeliveryFeePayer = "customer" | "company";
+
+function normalizeDeliveryFeePayer(value?: DeliveryFeePayer): DeliveryFeePayer {
+  return value === "company" ? "company" : "customer";
+}
+
+function calculateSaleItems(inputItems: SaleInputItem[]) {
+  const cleanItems = inputItems.filter((i) => i.product_name && i.qty > 0);
+  return cleanItems.map((i) => {
+    const deliveryFee = Math.max(0, Number(i.delivery_fee || 0));
+    const deliveryFeePayer = normalizeDeliveryFeePayer(i.delivery_fee_payer);
+
+    return {
+      sale_id: "",
+      product_id: i.product_id || null,
+      product_name: i.product_name,
+      qty: i.qty,
+      unit_price: i.unit_price,
+      delivery_fee: deliveryFee,
+      delivery_fee_payer: deliveryFeePayer,
+      subtotal: i.qty * i.unit_price,
+    };
+  });
+}
+
+type SaleCustomerInput = {
+  customer_id?: string | null;
+  customer_name?: string;
+  customer_phone?: string;
+  customer_address?: string;
+};
+
+async function saveSaleCustomer(
+  supabase: Awaited<ReturnType<typeof requireUser>>["supabase"],
+  userId: string,
+  input: SaleCustomerInput
+) {
+  const customer = {
+    id: input.customer_id || null,
+    name: String(input.customer_name || "").trim() || null,
+    phone: String(input.customer_phone || "").trim() || null,
+    address: String(input.customer_address || "").trim() || null,
+  };
+
+  if (!customer.name && !customer.phone && !customer.address) return customer;
+
+  if (customer.id) {
+    return { ...customer, name: customer.name || "Unnamed customer" };
+  }
+
+  const name = customer.name || "Unnamed customer";
+  const { data, error } = await supabase
+    .from("customers")
+    .insert({
+      name,
+      phone: customer.phone,
+      address: customer.address,
+      created_by: userId,
+    })
+    .select("id")
+    .single();
+  if (error || !data) throw error || new Error("Failed to create customer");
+
+  return { ...customer, id: data.id, name };
+}
+
 export async function createSale(input: {
   sale_date: string;
+  customer_id?: string | null;
   customer_name?: string;
+  customer_phone?: string;
+  customer_address?: string;
   channel?: string;
   discount?: number;
   payment_status?: string;
   note?: string;
-  items: { product_id?: string | null; product_name: string; qty: number; unit_price: number }[];
+  items: SaleInputItem[];
 }) {
   const { supabase, user } = await requireUser();
-  const subtotal = input.items.reduce((s, i) => s + i.qty * i.unit_price, 0);
-  const total = Math.max(0, subtotal - (input.discount || 0));
+  const saleItems = calculateSaleItems(input.items);
+  if (saleItems.length === 0) throw new Error("Add at least one item");
+  const customer = await saveSaleCustomer(supabase, user.id, input);
+
+  const subtotal = saleItems.reduce((s, i) => s + i.subtotal, 0);
+  const customerDeliveryFee = saleItems.reduce(
+    (s, i) => s + (i.delivery_fee_payer === "customer" ? i.delivery_fee : 0),
+    0
+  );
+  const total = Math.max(0, subtotal + customerDeliveryFee - (input.discount || 0));
 
   const { data: sale, error } = await supabase
     .from("sales")
     .insert({
       sale_date: input.sale_date,
-      customer_name: input.customer_name || null,
+      customer_id: customer.id,
+      customer_name: customer.name,
+      customer_phone: customer.phone,
+      customer_address: customer.address,
       channel: input.channel || null,
       discount: input.discount || 0,
       total,
@@ -109,13 +242,9 @@ export async function createSale(input: {
     .single();
   if (error || !sale) throw error || new Error("Failed to create sale");
 
-  const items = input.items.map((i) => ({
+  const items = saleItems.map((i) => ({
+    ...i,
     sale_id: sale.id,
-    product_id: i.product_id || null,
-    product_name: i.product_name,
-    qty: i.qty,
-    unit_price: i.unit_price,
-    subtotal: i.qty * i.unit_price,
   }));
   const { error: e2 } = await supabase.from("sale_items").insert(items);
   if (e2) throw e2;
@@ -127,25 +256,36 @@ export async function createSale(input: {
 
 export async function updateSale(id: string, input: {
   sale_date: string;
+  customer_id?: string | null;
   customer_name?: string;
+  customer_phone?: string;
+  customer_address?: string;
   channel?: string;
   discount?: number;
   payment_status?: string;
   note?: string;
-  items: { product_id?: string | null; product_name: string; qty: number; unit_price: number }[];
+  items: SaleInputItem[];
 }) {
-  const { supabase } = await requireUser();
-  const cleanItems = input.items.filter((i) => i.product_name && i.qty > 0);
-  if (cleanItems.length === 0) throw new Error("Add at least one item");
+  const { supabase, user } = await requireUser();
+  const saleItems = calculateSaleItems(input.items);
+  if (saleItems.length === 0) throw new Error("Add at least one item");
+  const customer = await saveSaleCustomer(supabase, user.id, input);
 
-  const subtotal = cleanItems.reduce((s, i) => s + i.qty * i.unit_price, 0);
-  const total = Math.max(0, subtotal - (input.discount || 0));
+  const subtotal = saleItems.reduce((s, i) => s + i.subtotal, 0);
+  const customerDeliveryFee = saleItems.reduce(
+    (s, i) => s + (i.delivery_fee_payer === "customer" ? i.delivery_fee : 0),
+    0
+  );
+  const total = Math.max(0, subtotal + customerDeliveryFee - (input.discount || 0));
 
   const { error: saleError } = await supabase
     .from("sales")
     .update({
       sale_date: input.sale_date,
-      customer_name: input.customer_name || null,
+      customer_id: customer.id,
+      customer_name: customer.name,
+      customer_phone: customer.phone,
+      customer_address: customer.address,
       channel: input.channel || null,
       discount: input.discount || 0,
       total,
@@ -158,13 +298,9 @@ export async function updateSale(id: string, input: {
   const { error: deleteError } = await supabase.from("sale_items").delete().eq("sale_id", id);
   if (deleteError) throw deleteError;
 
-  const items = cleanItems.map((i) => ({
+  const items = saleItems.map((i) => ({
+    ...i,
     sale_id: id,
-    product_id: i.product_id || null,
-    product_name: i.product_name,
-    qty: i.qty,
-    unit_price: i.unit_price,
-    subtotal: i.qty * i.unit_price,
   }));
   const { error: insertError } = await supabase.from("sale_items").insert(items);
   if (insertError) throw insertError;
